@@ -14,8 +14,26 @@ unwanted_phrases = [
     "Login", "Already a subscriber?", "Subscribe for all of The Times", "View Report", "Fetching latest articles",
     "Disclaimer", "While we try everything to ensure accuracy",
     "The designations employed and the presentation of material on the map",
+    "more taiwan news  2024 all rights reserved  ",
     "Copy link Copied Copy link Copied  to gift this article  to anyone you choose each month when you subscribe.",
-    "(Reuters)"
+    "View more news",
+    "opens new tab",
+    "Our Standards:",
+    "The graph shows the current",
+    "This article is more than",
+    "Click here to view the list",
+    "Gift 5 articles",
+    "Subscribe",
+    "Follow the topics",
+    "Login",
+    "Already a subscriber?",
+    "Subscribe for all of The Times",
+    "View Report",
+    "Fetching latest articles",
+    "Disclaimer",
+    "While we try everything to ensure accuracy",
+    "The designations employed and the presentation of material on the map",
+    "(Reuters)",
     # Add more unwanted phrases here as needed
 ]
 
