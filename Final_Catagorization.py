@@ -1,150 +1,103 @@
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 import pandas as pd
 import torch
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import re
-from collections import Counter
 
-# Define input and output file paths
-input_file_path = "/Users/sathishm/Documents/TSM Folder/Datathon Stage 2/LLM/Final Output2.xlsx"
-output_file_path = "/Users/sathishm/Documents/TSM Folder/Datathon Stage 2/LLM/LLM Output.xlsx"
+input_file_path = "/Users/sathishm/Documents/TSM Folder/Datathon Stage 2/Scrapping data/Scrapping Output.xlsx"
+output_file_path = "/Users/sathishm/Documents/TSM Folder/Datathon Stage 2/LLM data/LLM Output.xlsx"
 
-# Load the pretrained BERT tokenizer and model
-model_name = 'bert-base-uncased'
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=5)
+tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-large")
+model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-large").to("cuda" if torch.cuda.is_available() else "cpu")
 
-# Define keyword categories
-category_keywords = {
-    "Trade": [
-        "trade", "economy", "import", "export", "market", "tariff", "commodity", "goods", "supply chain", "trade war",
-        "free trade", "trade agreement", "negotiations", "quota", "price index", "merchandise", "globalization",
-        "wholesale", "retail", "demand", "surplus", "deficit", "production", "trade barrier", "customs", "tax",
-        "exemption", "embargo", "foreign exchange", "investment", "subsidy", "licensing", "capital", "revenue",
-        "income", "corporation", "bonds", "securities", "shareholders", "stocks", "transactions", "commerce",
-        "futures", "commodities", "purchasing", "economic sanctions", "economic impact", "trade deal", "valuation",
-        "global trade", "trade unions", "business", "supply curve", "international market", "balance of trade",
-        "tariff barriers", "economic recovery", "commercial agreement", "commodity prices", "financial markets",
-        "global trade patterns", "globalization index", "foreign trade policies", "trade credit", "trade partnerships",
-        "exchange rates", "tariff imposition", "trade imbalances", "export surplus", "international commerce",
-        "consumer goods", "multilateral agreements", "economic development", "gross domestic product",
-        "retail industry",
-        "stock exchange", "economic policy", "venture capital", "financial transactions", "revenue generation",
-        "economic stability", "cross-border trade", "trading platforms", "corporate earnings", "business expansion",
-        "economic indicators", "trade reform", "consumer demand", "economic growth", "inflation rate",
-        "commodity trade",
-        "market competition", "industrial production", "international investment", "financial assets", "capital flow"
-    ],
-    "Natural Disaster": [
-        "hurricane", "earthquake", "flood", "storm", "disaster", "cyclone", "wildfire", "tsunami", "avalanche",
-        "volcano", "tornado", "drought", "landslide", "eruption", "heatwave", "monsoon", "blizzard", "hailstorm",
-        "lightning", "snowstorm", "tremor", "aftershock", "seismic", "natural hazard", "climate", "global warming",
-        "flash flood", "forest fire", "tropical storm", "typhoon", "severe weather", "weather alert", "disaster relief",
-        "damage", "casualties", "rescue", "evacuation", "tsunami warning", "risk assessment", "disaster preparedness",
-        "recovery efforts", "humanitarian", "epicenter", "famine", "catastrophe", "flooding", "mudslide",
-        "cyclonic storm",
-        "environmental disaster", "storm surge", "tectonic plate", "seismic waves", "geological event", "lava flow",
-        "ash cloud", "environmental impact", "natural catastrophe", "extreme heat", "disaster response",
-        "reconstruction",
-        "earthquake tremors", "volcanic eruption", "glacial melting", "tidal waves", "windstorm", "severe flooding",
-        "hazardous weather", "severe drought", "floodwaters", "storm damage", "structural damage", "rescue operations",
-        "rebuilding efforts", "natural calamity", "mass evacuation", "emergency response", "environmental hazards",
-        "heat index", "intense rainfall", "climate disaster", "wildfire spread", "debris flow", "ecosystem destruction",
-        "geological shift", "lava eruption", "natural relief", "reconstruction phase", "rapid onset disaster",
-        "storm path",
-        "weather disaster", "natural hazards", "torrential rain", "ocean storm"
-    ],
-    "Geopolitics": [
-        "politics", "war", "sanction", "geopolitical", "conflict", "diplomacy", "tension", "peace talks", "alliance",
-        "rebellion", "treaty", "territory", "sovereignty", "military", "occupation", "border", "regime", "coup",
-        "nuclear", "weapon", "embassy", "ambassador", "intervention", "foreign relations", "defense", "security",
-        "spy", "terrorism", "proxy war", "insurgency", "diplomatic", "international law", "revolution", "espionage",
-        "invasion", "sanctions", "ceasefire", "blockade", "peacekeeping", "human rights", "arms deal", "intelligence",
-        "civil war", "uprising", "authoritarian", "dictatorship", "power struggle", "sovereignty", "statecraft",
-        "international conflicts", "strategic interests", "military presence", "border disputes", "conflict resolution",
-        "military strategy", "geopolitical landscape", "foreign intervention", "political unrest", "arms control",
-        "strategic resources", "international stability", "geostrategy", "intelligence operations",
-        "international borders",
-        "economic sanctions", "state sovereignty", "political power", "foreign policy", "embargo enforcement",
-        "government leadership", "global governance", "international relations", "power balance", "allied forces",
-        "military coup", "global influence", "nation-state", "diplomatic relations", "territorial integrity",
-        "sovereign state", "political authority", "territorial claims", "cross-border conflict", "unilateral actions",
-        "military enforcement", "foreign affairs", "diplomatic channels", "state-sponsored", "political instability",
-        "geopolitical tension", "security council", "military occupation", "international influence",
-        "peace negotiations"
-    ],
-    "Transportation": [
-        "transport", "logistics", "shipping", "freight", "airline", "port", "cargo", "rail", "airport", "shipping lane",
-        "container", "trucks", "railway", "highway", "routes", "infrastructure", "customs clearance", "warehousing",
-        "inventory", "passenger", "bus", "transit", "cruise", "flight", "pilot", "vessel", "delivery",
-        "package", "carriage", "freight train", "logistics hub", "freight forwarder", "distribution", "sea freight",
-        "air freight", "ocean freight", "road transportation", "shipment", "maritime", "pipeline", "logistics company",
-        "drone delivery", "border crossing", "rail cargo", "trucking", "automobile", "transit system",
-        "shipping logistics",
-        "logistics services", "freight forwarding", "supply lines", "port operations", "road network",
-        "aviation industry",
-        "public transportation", "urban transit", "passenger transport", "maritime transport", "rail networks",
-        "freight logistics", "cargo shipments", "supply routes", "shipping costs", "delivery networks", "air cargo",
-        "cargo handling", "freight movement", "transportation infrastructure", "transport hub", "container ship",
-        "rail freight", "transportation services", "port facilities", "rail cargo transport", "bulk freight",
-        "transport fleet",
-        "customs logistics", "road freight", "freight volume", "transit authority", "vehicle transportation",
-        "global transport",
-        "shipment logistics", "land transport", "multimodal logistics", "transportation route", "inland transport"
-    ],
-    "Others": [
-        "incident", "event", "unknown", "miscellaneous", "general", "unspecified", "undefined", "situation", "case",
-        "unknown reason", "unsure", "various factors", "multiple causes", "different issues", "varied",
-        "general category", "other", "not listed", "miscellaneous reason", "unknown cause", "not specified",
-        "unknown situation", "general impact", "other reasons", "uncertain impact", "unclear event", "unrelated factor",
-        "broad issue", "wide-ranging", "unclassified", "broad category", "ambiguous situation", "various scenarios",
-        "mixed circumstances", "indeterminate", "unknown origin", "general issue", "uncertain", "ambiguous",
-        "general impact",
-        "unclear scenario", "assorted", "undefined cause", "vague reason", "diverse reasons", "unclassified",
-        "broad impact",
-        "unfamiliar", "nonspecific", "non-categorized", "non-specific issue", "general event", "unsure situation",
-        "unexplained event", "general impact", "undetermined outcome", "uncertain scenario", "miscellaneous factors",
-        "not specifically stated", "broad spectrum", "vague event", "unclear category", "inconclusive",
-        "non-determined",
-        "unresolved issue", "ambiguous context", "multifactorial", "unconnected factors", "diverse causes",
-        "generalized impact",
-        "non-classified", "unclear reasoning", "mixed results", "uncertain origin", "general topic", "uncertain case", "wide scope",
-        "unknown implications", "vague circumstances", "generalized outcome", "multiple possibilities",
-        "uncertain outcome",
-        "unresolved situation", "multiple reasons", "unknown factors", "non-defined", "broad reasons",
-        "ambiguous reasons",
-        "uncertain explanation", "miscellaneous occurrence", "non-categorized event", "unsure outcome",
-        "unresolved cause",
-        "varied implications", "unfamiliar situation", "unclear status", "open-ended", "vague incident", "nondescript"
+categories = ["Transportation", "Natural Disaster", "Geo-politics", "Trade", "Labor", "Others"]
+
+def clean_content(content):
+    """Remove unwanted phrases from the content and preprocess by removing special characters, converting to lowercase."""
+    unwanted_phrases = [
+        "View more news", "opens new tab", "Our Standards:", "The graph shows the current", "This article is more than",
+        "Click here to view the list", "Gift 5 articles", "Subscribe", "Follow the topics", "Login",
+        "Already a subscriber?", "Subscribe for all of The Times", "View Report", "Fetching latest articles",
+        "Disclaimer", "While we try everything to ensure accuracy", "Copy link Copied Copy link Copied"
     ]
-}
+    for phrase in unwanted_phrases:
+        content = content.replace(phrase, "")
+    content = re.sub(r'[^\w\s]', '', content) 
+    return content.lower().strip()
 
-def clean_text(text):
-    """Clean the text by removing unwanted characters."""
-    text = re.sub(r'[^\w\s]', '', text)
-    return text.lower().strip()
+def extract_relevant_location(content, max_length=256):
+    device = "cuda" if torch.cuda.is_available() else "cpu"
 
-def categorize_text(text):
-    """Categorize text based on the most repeated keywords from each category."""
-    text = clean_text(text)
+    prompt = (
+        f"Extract the most relevant location related to geo-political events from the following content. "
+        f"If the content is geo-political, ensure the location includes country and state if applicable. "
+        f"Return the country in standard form (e.g., United States instead of US): {content}"
+    )
 
-    keyword_count = Counter()
+    inputs = tokenizer(prompt, return_tensors="pt", padding=True, truncation=True, max_length=max_length).to(device)
+    outputs = model.generate(**inputs, max_new_tokens=20)
+    location = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
 
-    # Count occurrences of keywords in each category
-    for category, keywords in category_keywords.items():
-        keyword_count[category] = sum(keyword in text for keyword in keywords)
+    return location if location else "Location not found"
 
-    # Get the category with the highest count of matched keywords
-    most_common_category = keyword_count.most_common(1)[0][0] if keyword_count else "Others"
+def generate_category(content, max_length=256, num_samples=10, temperature=0.4):
+    device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    return most_common_category
+    prompt = (
+        f"Classify the following content into one of the categories: "
+        f"Transport (includes pipelines, logistics, transport systems, vehicles, compressor stations, or activities like delivering or gathering gas), "
+        f"Natural Disaster (includes floods, earthquakes, cyclones, hurricanes, or other natural events), "
+        f"Geo-politics (international relations, government policies, conflicts), "
+        f"Trade (activities like production, export, import, tariffs, business, index, commerce, trade deals, sanctions, selling, stocks, economic agreements, negotiations, funds, and economic exchanges), "
+        f"Labor (pertaining to workers, strikes, labor unions, or employment-related matters), "
+        f"Others (use this if none of the above categories apply).\n\n"
+        f"Content: {content}\n"
+        f"Respond with only the category name:"
+    )
 
-# Read input Excel file
-df = pd.read_excel(input_file_path)
+    inputs = tokenizer(prompt, return_tensors="pt", padding=True, truncation=True, max_length=max_length).to(device)
+    generated_responses = []
+    for _ in range(num_samples):
+        outputs = model.generate(**inputs, max_new_tokens=5, temperature=temperature, repetition_penalty=1.2)
+        result = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
+        generated_responses.append(result)
 
-# Process each row and categorize content based on keyword counts
-df['Category'] = df['Content'].apply(categorize_text)
+    category_counts = {category: 0 for category in categories}
+    for response in generated_responses:
+        for category in categories:
+            if category.lower() in response.lower():
+                category_counts[category] += 1
 
-# Save output to new Excel file
-df.to_excel(output_file_path, index=False)
+    most_frequent_category = max(category_counts, key=category_counts.get)
+    return most_frequent_category
+    
+def process_excel_file(input_file_path, output_file_path):
+    df = pd.read_excel(input_file_path)
+    titles, contents, finalized_locations, categories_list = [], [], [], []
 
-print(f"Categorization completed and saved to {output_file_path}")
+    for index, row in df.iterrows():
+        title = row.get('Title', '')
+        content = row.get('Content', '')
+
+        cleaned_title = clean_content(str(title))
+        cleaned_content = clean_content(str(content))
+        location_from_title = extract_relevant_location(cleaned_title)
+        content_category = generate_category(cleaned_content)
+
+        titles.append(title)
+        contents.append(content)
+        finalized_locations.append(location_from_title)
+        categories_list.append(content_category)
+
+        print(f"Processed {index + 1}/{len(df)}: Location -> {location_from_title}, Category -> {content_category}")
+
+    result_df = pd.DataFrame({
+        'Title': titles,
+        'Content': contents,
+        'Location': finalized_locations,
+        'Category': categories_list
+    })
+
+    result_df.to_excel(output_file_path, index=False)
+    print(f"Processing completed with Generative AI, saved to {output_file_path}")
+
+process_excel_file(input_file_path, output_file_path)
