@@ -1,0 +1,11 @@
+use this as an input file location "/Users/sathishm/Documents/TSM Folder/Datathon Stage 2/LLM data/LLM Output.xlsx"
+
+and get the out put file in "/Users/sathishm/Documents/TSM Folder/Datathon Stage 2/Final Output/Final Output.xlsx"
+
+use this model: 
+tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-large")
+model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-large").to("cuda" if torch.cuda.is_available() else "cpu")
+
+with the input file will have title, content, location, category, this model needs to read the catagory and take it as an input and give a summary about it mentioning what supply chain is getting affected and what business might get affected because of that event this model should be able to generate text base on the prompts given 
+
+the prompts would be different supply chains
