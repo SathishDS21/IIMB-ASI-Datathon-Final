@@ -12,7 +12,6 @@ model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-large").to("cuda" 
 categories = ["Transportation", "Natural Disaster", "Geo-politics", "Trade", "Labor", "Others"]
 
 def clean_content(content):
-    """Remove unwanted phrases from the content and preprocess by removing special characters, converting to lowercase."""
     unwanted_phrases = [
         "View more news", "opens new tab", "Our Standards:", "The graph shows the current", "This article is more than",
         "Click here to view the list", "Gift 5 articles", "Subscribe", "Follow the topics", "Login",
