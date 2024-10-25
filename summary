@@ -9,3 +9,5 @@ model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-large").to("cuda" 
 with the input file will have title, content, location, category, this model needs to read the catagory and take it as an input and give a summary about it mentioning what supply chain is getting affected and what business might get affected because of that event this model should be able to generate text base on the prompts given 
 
 the prompts would be different supply chains
+
+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
