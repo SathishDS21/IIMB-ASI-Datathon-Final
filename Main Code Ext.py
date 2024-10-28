@@ -16,13 +16,16 @@ true_category_file_path = "/Users/sathishm/Documents/TSM Folder/Datathon Stage 2
 
 categories = ["Natural Disaster", "Geo-politics", "Trade", "Labor", "Transportation", "Others"]
 
-unwanted_phrases = [
-    "View more news", "opens new tab", "Our Standards:", "The graph shows the current",
-    "This article is more than", "Click here to view the list", "Gift 5 articles",
-    "Subscribe", "Follow the topics", "Login", "Already a subscriber?",
-    "Subscribe for all of The Times", "View Report", "Fetching latest articles",
-    "Disclaimer", "While we try everything to ensure accuracy", "(Reuters)"
-]
+unwanted_phrases = list(set([
+    "View more news", "opens new tab", "Our Standards:", "The graph shows the current", "This article is more than",
+    "Click here to view the list", "Gift 5 articles", "Subscribe", "Follow the topics", "Login",
+    "Already a subscriber?", "Subscribe for all of The Times", "View Report", "Fetching latest articles",
+    "Disclaimer", "While we try everything to ensure accuracy",
+    "The designations employed and the presentation of material on the map",
+    "more taiwan news  2024 all rights reserved",
+    "Copy link Copied Copy link Copied to gift this article to anyone you choose each month when you subscribe.",
+    "(Reuters)"
+]))
 
 def clean_content(content):
     for phrase in unwanted_phrases:
@@ -31,18 +34,14 @@ def clean_content(content):
     return content.strip()
 
 def call_openai_api(prompt):
-    try:
-        response = openai.Completion.create(
-            model="gpt-3.5-turbo-instruct",
-            prompt=prompt,
-            max_tokens=150,
-            temperature=0.7,
-            frequency_penalty=0.3
-        )
-        return response['choices'][0]['text'].strip()
-    except Exception as e:
-        print(f"Error calling OpenAI API: {e}")
-        return ""
+    response = openai.Completion.create(
+        model="gpt-3.5-turbo-instruct",
+        prompt=prompt,
+        max_tokens=150,
+        temperature=0.7,  # Adjust temperature for better variety
+        frequency_penalty=0.3  # Reduced penalty for better response diversity
+    )
+    return response['choices'][0]['text'].strip()
 
 def summarize_content(content):
     prompt = f"Summarize the following news article in a single paragraph with more than 100 words:\n\n{content}"
@@ -52,11 +51,13 @@ def extract_relevant_location(content):
     prompt = (
         f"Identify only the most specific and relevant geopolitical location from the following content. "
         f"Provide the location as a state or country name only. If a city is mentioned, replace it with the corresponding state and country. "
+        f"For example, if 'Los Angeles' is mentioned, respond with 'California, United States'. If 'Hong Kong' is mentioned, respond with 'Hong Kong, China'. "
+        f"Do not include city names on their own.\n\n"
         f"Content: {content}\n\n"
         f"Respond with only the location name in the format 'State, Country' or 'Country' if only the country is mentioned."
     )
     response = call_openai_api(prompt)
-    return response if response else "Location Not Found"
+    return response.strip()
 
 def generate_category(content):
     prompt = (
@@ -94,118 +95,58 @@ def predict_supply_chain_impact(content, category):
         f"Respond in the format 'supply_chain_impact: <area>, reason_for_impact: <reason>'"
     )
     response = call_openai_api(prompt)
+
+    # Extract supply chain impact and reason using regular expressions
     impact_match = re.search(r'supply_chain_impact:\s*(.*?)(?:,|$)', response)
     reason_match = re.search(r'reason_for_impact:\s*(.*)', response)
+
     supply_chain_impact = impact_match.group(1).strip() if impact_match else "Unclear Impact"
-    reason_for_impact = reason_match.group(1).strip() if reason_match else "Reason Not Specified"
+    reason_for_impact = reason_match.group(1).strip() if reason_match else "The impact on supply chain is not specified."
+
     return supply_chain_impact, reason_for_impact
 
-def extract_business_assumption_and_product_criticality(content):
-    prompt = (
-        f"Based on the following content, analyze and determine the primary business or industry involved. "
-        f"Choose a standardized industry category where possible, aligning with options like 'Semiconductor Manufacturing', "
-        f"'Automotive Manufacturing', 'Pharmaceuticals', 'Food Industry', 'Electronics Manufacturing', or 'General Manufacturing' "
-        f"for any general or unspecified industry types. Additionally, determine the criticality of the main product associated with this business. "
-        f"Classify product criticality as 'High', 'Moderate', or 'Low' based on its essential nature to the industry.\n\n"
-        f"Content: {content}\n\n"
-        f"Respond in the format 'business_assumption: <industry category>, product_criticality: <level>'"
-    )
-
-    # Call OpenAI API to get a response
     response = call_openai_api(prompt)
 
-    # Extract the business assumption and product criticality using regex
-    business_match = re.search(r'business_assumption:\s*(.*?)(?:,|$)', response)
-    criticality_match = re.search(r'product_criticality:\s*(.*)', response)
+    # Extract supply chain impact and reason using regular expressions
+    impact_match = re.search(r'supply_chain_impact:\s*(.*?)(?:,|$)', response)
+    reason_match = re.search(r'reason_for_impact:\s*(.*)', response)
 
-    # Default to "General Manufacturing" and "Moderate" if AI does not return expected values
-    business_assumption = business_match.group(1).strip() if business_match else "General Manufacturing"
-    product_criticality = criticality_match.group(1).strip() if criticality_match else "Moderate"
+    supply_chain_impact = impact_match.group(1).strip() if impact_match else "Unclear Impact"
+    reason_for_impact = reason_match.group(1).strip() if reason_match else "The impact on supply chain is not specified."
 
-    # Ensure business assumption is standardized by checking common industry keywords
-    standardized_categories = {
-        "semiconductor": "Semiconductor Manufacturing",
-        "automotive": "Automotive Manufacturing",
-        "pharmaceutical": "Pharmaceuticals",
-        "food": "Food Industry",
-        "electronics": "Electronics Manufacturing",
-        "general": "General Manufacturing"
-    }
-
-    # Match business assumption to standardized categories if not already in the desired format
-    for keyword, category in standardized_categories.items():
-        if keyword in business_assumption.lower():
-            business_assumption = category
-            break
-
-    return business_assumption, product_criticality
-
-# Updated to use GenAI for dynamic supplier extraction
-def extract_supplier_name(content, title, url):
-    prompt = (
-        f"Identify the single most relevant supplier or manufacturing entity in the content, title, or URL. "
-        f"Focus on names that are likely to be key players or primary suppliers in the supply chain context. "
-        f"Exclude entities that are government agencies, regulatory bodies, or irrelevant to the primary supplier focus.\n"
-        f"Content: {content}\nTitle: {title}\nURL: {url}\n\n"
-        f"Respond with 'primary_supplier_name: <Most Relevant Supplier Name>' or 'No Relevant Supplier Found' if no primary supplier is identified."
-    )
-    response = call_openai_api(prompt)
-    supplier_match = re.search(r'primary_supplier_name:\s*(.*)', response)
-    primary_supplier = supplier_match.group(1).strip() if supplier_match else "No Relevant Supplier Found"
-
-    if primary_supplier.lower() == "no relevant supplier found":
-        refine_prompt = (
-            f"Re-evaluate the content, title, and URL to identify any main suppliers or manufacturers. "
-            f"Return the single most relevant name, or respond with 'No Relevant Supplier Found' if none can be identified."
-        )
-        response = call_openai_api(refine_prompt)
-        supplier_match = re.search(r'primary_supplier_name:\s*(.*)', response)
-        primary_supplier = supplier_match.group(1).strip() if supplier_match else "No Relevant Supplier Found"
-
-    return primary_supplier
-
-def calculate_impact_priority(content, product_criticality):
-    prompt = (
-        f"Based on the following content and the product criticality level '{product_criticality}', "
-        f"determine the impact priority for the supply chain. Respond with 'High Priority', 'Moderate Priority', or 'Low Priority'.\n\n"
-        f"Content: {content}\n\n"
-        f"Respond with only the impact priority."
-    )
-    response = call_openai_api(prompt)
-    return response if response in ["High Priority", "Moderate Priority", "Low Priority"] else "Moderate Priority"
-
-
-def calculate_resilience_score(content, event_severity, product_criticality, impact_priority):
-    prompt = (
-        f"Analyze the resilience of the business's supply chain based on the following factors:\n\n"
-        f"- **Content**: {content}\n"
-        f"- **Event Severity** (how severe the event is, e.g., low, medium, high): {event_severity}\n"
-        f"- **Product Criticality** (how essential the product is to operations): {product_criticality}\n"
-        f"- **Impact Priority** (the priority of addressing the impact, e.g., immediate, delayed): {impact_priority}\n\n"
-        f"Using these details, assign a resilience score between 0 and 100. "
-        f"The score should consider higher resilience for lower event severity, lower product criticality, "
-        f"and lower impact priority. Return only a single numerical score."
-    )
+    return supply_chain_impact, reason_for_impact
     response = call_openai_api(prompt)
 
-    try:
-        resilience_score = float(response.strip())
-        # Ensure the score is within bounds 0-100
-        resilience_score = max(0, min(resilience_score, 100))
-    except ValueError:
-        # Default to an average resilience score if parsing fails
-        resilience_score = 50
+    # Extract supply chain impact and reason using regular expressions
+    impact_match = re.search(r'supply_chain_impact:\s*(.*?)(?:,|$)', response)
+    reason_match = re.search(r'reason_for_impact:\s*(.*)', response)
 
-    return resilience_score
+    supply_chain_impact = impact_match.group(1).strip() if impact_match else "Unclear Impact"
+    reason_for_impact = reason_match.group(1).strip() if reason_match else "The impact on supply chain is not specified."
 
+    return supply_chain_impact, reason_for_impact
+
+    response = call_openai_api(prompt)
+
+    # Extract supply chain impact and reason using regular expressions
+    impact_match = re.search(r'supply_chain_impact:\s*(.*?)(?:,|$)', response)
+    reason_match = re.search(r'reason_for_impact:\s*(.*)', response)
+
+    supply_chain_impact = impact_match.group(1).strip() if impact_match else "Unclear Impact"
+    reason_for_impact = reason_match.group(1).strip() if reason_match else "The impact on supply chain is not specified."
+
+    return supply_chain_impact, reason_for_impact
 
 def scrape_with_cloudscraper(url):
     attempts = 3
     for attempt in range(attempts):
         try:
-            headers = {'User-Agent': 'Mozilla/5.0'}
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
             scraper = cloudscraper.create_scraper()
             response = scraper.get(url, headers=headers)
+
             if response.status_code == 200:
                 soup = BeautifulSoup(response.text, 'html.parser')
                 title = scrape_title(soup)
@@ -216,13 +157,7 @@ def scrape_with_cloudscraper(url):
                     summary = summarize_content(cleaned_content)
                     location = extract_relevant_location(cleaned_content)
                     category = generate_category(summary)
-                    supply_chain_impact, reason_for_impact = predict_supply_chain_impact(summary, category)
-                    business_assumption, product_criticality = extract_business_assumption_and_product_criticality(summary)
-                    supplier_name = extract_supplier_name(cleaned_content, cleaned_title, url)
-                    impact_priority = calculate_impact_priority(cleaned_content, product_criticality)
-                    event_severity = random.randint(5, 10)  # Placeholder severity score based on category or content
-                    resilience_score = calculate_resilience_score(cleaned_content, event_severity, product_criticality, impact_priority)
-
+                    supply_chain_impact, reason = predict_supply_chain_impact(summary, category)
                     return {
                         "url": url,
                         "title": cleaned_title,
@@ -230,47 +165,55 @@ def scrape_with_cloudscraper(url):
                         "location": location,
                         "category": category,
                         "supply_chain_impact": supply_chain_impact,
-                        "reason_for_impact": reason_for_impact,
-                        "business_assumption": business_assumption,
-                        "supplier_name": supplier_name,
-                        "product_criticality": product_criticality,
-                        "impact_priority": impact_priority,
-                        "resilience_score": resilience_score
+                        "reason_for_impact": reason
                     }
         except Exception as e:
-            print(f"Error in scraping attempt {attempt+1}: {e}")
-            time.sleep(random.uniform(1, 3))
+            if attempt < attempts - 1:
+                time.sleep(random.uniform(1, 3))
     return None
 
 def scrape_title(soup):
+    """Try multiple patterns to extract the title."""
     title_patterns = [
+        {'tag': 'h1', 'attr': {'class': '_804759db85ec8cc17e4f', 'data-testid': 'ArticleHeader-headline'}},
+        {'tag': 'div', 'attr': {'id': 'alert_TC_Green_title_big'}},
+        {'tag': 'span', 'attr': {'id': 'ctl00_masterReportTitle'}},
         {'tag': 'h1'},
         {'tag': 'h2'},
         {'tag': 'div', 'attr': {'class': 'view_headline LoraMedium'}},
-        {'tag': 'span', 'attr': {'class': 'headline'}},
-        {'tag': 'meta', 'attr': {'property': 'og:title'}},
-        {'tag': 'meta', 'attr': {'name': 'title'}}
+        {'tag': 'div', 'attr': {'data-qa': 'headline'}},
+        {'tag': 'h1', 'attr': {'class': 'css-xyz'}},
+        {'tag': 'div', 'attr': {'class': 'alert_title'}},
     ]
+
     for pattern in title_patterns:
-        tag, attr = pattern.get('tag'), pattern.get('attr', {})
+        tag = pattern.get('tag')
+        attr = pattern.get('attr', {})
         title_element = soup.find(tag, attr)
         if title_element:
-            if tag == 'meta' and title_element.get('content'):
-                return title_element['content'].strip()
             return title_element.text.strip()
-    if soup.title:
-        return soup.title.text.strip()
+
     return None
 
 def scrape_content(soup):
-    content_patterns = [{'tag': 'div', 'attr': {'data-testid': lambda x: x and x.startswith('paragraph-')}}, {'tag': 'p'}]
+    content_patterns = [
+        {'tag': 'div', 'attr': {'data-testid': lambda x: x and x.startswith('paragraph-')}},
+        {'tag': 'p'},
+        {'tag': 'td', 'attr': {'class': 'cell_value_summary'}},
+        {'tag': 'span', 'attr': {'class': 'read'}},
+        {'tag': 'p', 'attr': {'class': 'p_summary'}},
+        {'tag': 'p', 'attr': {'class': 'css-at9mc1 evys1bk0'}},
+    ]
+
     for pattern in content_patterns:
-        tag, attr = pattern.get('tag'), pattern.get('attr', {})
+        tag = pattern.get('tag')
+        attr = pattern.get('attr', {})
         elements = soup.find_all(tag, attr)
         if elements:
-            return " ".join([el.text.strip() for el in elements])
-    return None
+            content = " ".join([el.text.strip() for el in elements])
+            return content
 
+    return None
 def scrape_from_excel(input_file_path, output_file_path, true_category_file_path):
     df = pd.read_excel(input_file_path)
     true_category_df = pd.read_excel(true_category_file_path)
@@ -297,11 +240,8 @@ def scrape_from_excel(input_file_path, output_file_path, true_category_file_path
     overall_accuracy = sum(accuracies) / len(accuracies) if accuracies else 0
     print(f"Overall Category Classification Accuracy: {overall_accuracy:.2f}%")
 
-    result_df = pd.DataFrame(results, columns=[
-        "url", "title", "content", "location", "category", "supply_chain_impact", "reason_for_impact",
-        "business_assumption", "supplier_name", "product_criticality",
-        "impact_priority", "resilience_score"
-    ])
+    result_df = pd.DataFrame(results,
+                             columns=["url", "title", "content", "location", "category", "supply_chain_impact", "reason_for_impact"])
     result_df.to_excel(output_file_path, index=False)
     print(f"Scraping and processing completed. Results saved to {output_file_path}")
 
