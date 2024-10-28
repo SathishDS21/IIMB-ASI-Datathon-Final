@@ -8,7 +8,7 @@ import openai
 from sklearn.metrics import accuracy_score
 from tqdm import tqdm
 
-openai.api_key = ****************
+openai.api_key = "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"
 
 input_file_path = "D:/Python/Scrapping Input.xlsx"
 output_file_path = "D:/Python/Combined_Output.xlsx"
@@ -38,8 +38,8 @@ def call_openai_api(prompt):
         model="gpt-3.5-turbo-instruct",
         prompt=prompt,
         max_tokens=150,
-        temperature=0.7, 
-        frequency_penalty=0.3  
+        temperature=0.7,  # Adjust temperature for better variety
+        frequency_penalty=0.3  # Reduced penalty for better response diversity
     )
     return response['choices'][0]['text'].strip()
 
@@ -49,10 +49,15 @@ def summarize_content(content):
 
 def extract_relevant_location(content):
     prompt = (
-        f"Extract the most specific and relevant geopolitical location from the following content. "
-        f"Provide only one location related to an event in the content:\n\n{content}"
+        f"Identify only the most specific and relevant geopolitical location from the following content. "
+        f"Provide the location as a state or country name only. If a city is mentioned, replace it with the corresponding state and country. "
+        f"For example, if 'Los Angeles' is mentioned, respond with 'California, United States'. If 'Hong Kong' is mentioned, respond with 'Hong Kong, China'. "
+        f"Do not include city names on their own.\n\n"
+        f"Content: {content}\n\n"
+        f"Respond with only the location name in the format 'State, Country' or 'Country' if only the country is mentioned."
     )
-    return call_openai_api(prompt)
+    response = call_openai_api(prompt)
+    return response.strip()
 
 def generate_category(content):
     prompt = (
@@ -70,17 +75,67 @@ def generate_category(content):
 
 def predict_supply_chain_impact(content, category):
     prompt = (
-        f"Based on the category '{category}' and the following content, identify one supply chain area affected and explain briefly why.\n\n"
+        f"Based on the category '{category}' and the following content, identify the single most relevant supply chain area impacted. "
+        f"Choose from these areas: \n"
+        f"1. Procurement: Sourcing and acquiring materials or goods required for production. Note that tariffs or trade restrictions can increase costs and disrupt sourcing efforts.\n"
+        f"2. Production: Manufacturing or assembling products, including labor and machinery management.\n"
+        f"3. Logistics: Movement and storage of goods within and outside the organization, or physical movement of goods to customers, including all shipping modes.\n"
+        f"4. Inventory Management: Monitoring and controlling stock levels to meet demand.\n"
+        f"5. Demand Planning and Forecasting: Predicting future demand to align production and inventory with market needs.\n"
+        f"6. Customer Service and Returns Management (Reverse Logistics): Handling customer inquiries and managing returns or exchanges.\n"
+        f"7. Supplier Management: Managing supplier relationships to ensure quality, timely delivery, and cost efficiency. Supplier Management is especially important in situations involving collaborative projects, trade restrictions, or the need for sourcing alternatives.\n"
+        f"8. Risk Management: Identifying and mitigating risks across the supply chain, especially those related to geopolitical changes like tariffs or trade restrictions.\n\n"
+        f"Identify the primary event or information affecting the supply chain in the content and focus on the most relevant area impacted. "
+        f"For instance:\n"
+        f"- Trade restrictions may impact Procurement or Supplier Management if they affect sourcing materials from specific countries.\n"
+        f"- Collaborative projects involving multiple organizations may require strong Supplier Management to coordinate sourcing between parties.\n"
+        f"- Tariffs on imports can increase costs in Procurement, leading to a need for alternative sourcing options.\n\n"
+        f"If there are multiple unrelated events, select only the one that most likely impacts a specific supply chain area.\n\n"
         f"Content: {content}\n\n"
-        f"Respond with a single sentence describing the affected supply chain area and the reason for the impact."
+        f"Respond in the format 'supply_chain_impact: <area>, reason_for_impact: <reason>'"
     )
     response = call_openai_api(prompt)
 
-    if ":" in response:
-        impact_area, reason = response.split(":", 1)
-        return impact_area.strip(), reason.strip()[:150]
-    else:
-        return response.strip(), "" 
+    # Extract supply chain impact and reason using regular expressions
+    impact_match = re.search(r'supply_chain_impact:\s*(.*?)(?:,|$)', response)
+    reason_match = re.search(r'reason_for_impact:\s*(.*)', response)
+
+    supply_chain_impact = impact_match.group(1).strip() if impact_match else "Unclear Impact"
+    reason_for_impact = reason_match.group(1).strip() if reason_match else "The impact on supply chain is not specified."
+
+    return supply_chain_impact, reason_for_impact
+
+    response = call_openai_api(prompt)
+
+    # Extract supply chain impact and reason using regular expressions
+    impact_match = re.search(r'supply_chain_impact:\s*(.*?)(?:,|$)', response)
+    reason_match = re.search(r'reason_for_impact:\s*(.*)', response)
+
+    supply_chain_impact = impact_match.group(1).strip() if impact_match else "Unclear Impact"
+    reason_for_impact = reason_match.group(1).strip() if reason_match else "The impact on supply chain is not specified."
+
+    return supply_chain_impact, reason_for_impact
+    response = call_openai_api(prompt)
+
+    # Extract supply chain impact and reason using regular expressions
+    impact_match = re.search(r'supply_chain_impact:\s*(.*?)(?:,|$)', response)
+    reason_match = re.search(r'reason_for_impact:\s*(.*)', response)
+
+    supply_chain_impact = impact_match.group(1).strip() if impact_match else "Unclear Impact"
+    reason_for_impact = reason_match.group(1).strip() if reason_match else "The impact on supply chain is not specified."
+
+    return supply_chain_impact, reason_for_impact
+
+    response = call_openai_api(prompt)
+
+    # Extract supply chain impact and reason using regular expressions
+    impact_match = re.search(r'supply_chain_impact:\s*(.*?)(?:,|$)', response)
+    reason_match = re.search(r'reason_for_impact:\s*(.*)', response)
+
+    supply_chain_impact = impact_match.group(1).strip() if impact_match else "Unclear Impact"
+    reason_for_impact = reason_match.group(1).strip() if reason_match else "The impact on supply chain is not specified."
+
+    return supply_chain_impact, reason_for_impact
 
 def scrape_with_cloudscraper(url):
     attempts = 3
